@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#764ba2">
+<title> AI Smart Clipper</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px 15px;
+    color: #333;
+  }
+  .container {
+    max-width: 500px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  h1 { text-align: center; color: #4a5568; margin-bottom: 5px; font-size: 22px; }
+  .subtitle { text-align: center; color: #718096; font-size: 12px; margin-bottom: 20px; }
+  
+  .tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+  .tab {
+    flex: 1; padding: 12px; border: none; border-radius: 10px;
+    background: #e2e8f0; color: #4a5568; font-weight: 600; font-size: 14px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .tab.active { background: linear-gradient(135deg, #667eea, #764ba2); color: white; }
+  
+  .card {
+    background: #f7fafc;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+  }
+  label { display: block; font-weight: 600; color: #4a5568; margin-bottom: 8px; font-size: 14px; }
+  input[type="file"] {
+    width: 100%; padding: 12px; border: 2px dashed #cbd5e0;
+    border-radius: 8px; background: white; font-size: 14px;
+  }
+  input[type="number"], select {
+    width: 100%; padding: 12px; border: 1px solid #cbd5e0;
+    border-radius: 8px; font-size: 16px; background: white;
+  }
+  .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  
+  .btn {
+    width: 100%; padding: 15px; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    margin-top: 10px; transition: transform 0.1s, opacity 0.2s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; background: #a0aec0 !important; }
+  .btn-primary { background: linear-gradient(135deg, #48bb78, #38a169); color: white; }
+  .btn-download { background: linear-gradient(135deg, #4299e1, #3182ce); color: white; display: none; }
+  
+  .status {
+    text-align: center; padding: 12px; border-radius: 8px;
+    margin-top: 15px; font-size: 14px; font-weight: 600; display: none;
+  }
+  .status.info { background: #ebf8ff; color: #2b6cb0; display: block; }
+  .status.success { background: #f0fff4; color: #22543d; display: block; }
+  .status.error { background: #fed7d7; color: #742a2a; display: block; }
+  
+  .progress-bar {
+    width: 100%; height: 10px; background: #e2e8f0;
+    border-radius: 5px; overflow: hidden; margin-top: 10px; display: none;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, #48bb78, #38a169);
+    width: 0%; transition: width 0.3s;
+  }
+  .file-info { font-size: 12px; color: #718096; margin-top: 8px; word-break: break-all; }
+  
+  .loader {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid #fff; border-top-color: transparent;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  
+  .highlight-item {
+    background: white; border-radius: 8px; padding: 12px;
+    margin-bottom: 8px; border-left: 4px solid #ed8936; cursor: pointer;
+  }
+  .highlight-item.selected { background: #f0fff4; border-left-color: #48bb78; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1> AI Smart Clipper</h1>
+  <p class="subtitle">Potong Video/Audio dengan AI</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('manual', event)">✂️ Manual</button>
+    <button class="tab" onclick="switchTab('auto', event)">🤖 Auto-AI</button>
+  </div>
+
+  <div class="card">
+    <label>📁 Pilih File Video/Audio</label>
+    <input type="file" id="fileInput" accept="video/*,audio/*">
+    <div class="file-info" id="fileInfo">Belum ada file dipilih</div>
+  </div>
+
+  <div class="tab-content active" id="tab-manual">
+    <div class="card">
+      <label>⏱️ Waktu Potong (detik)</label>
+      <div class="time-row">
+        <div>
+          <label style="font-size:12px; font-weight:500;">Mulai</label>
+          <input type="number" id="startTime" value="0" min="0" step="0.1">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:500;">Selesai</label>
+          <input type="number" id="endTime" value="10" min="0" step="0.1">
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="clipBtn" disabled>✂️ Mulai Memotong</button>
+  </div>
+
+  <div class="tab-content" id="tab-auto">
+    <div class="card">
+      <label> Metode Deteksi</label>
+      <select id="detectMode">
+        <option value="loudness">🔊 Audio Keras (cepat)</option>
+        <option value="combined" selected>🌟 Ultimate (gabungan)</option>
+      </select>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px;">
+        <div>
+          <label style="font-size:12px; font-weight:500;">Jumlah Hasil</label>
+          <select id="numHighlights">
+            <option value="3">3</option>
+            <option value="5" selected>5</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:500;">Durasi Clip (detik)</label>
+          <input type="number" id="clipDuration" value="15" min="3" max="60">
+        </div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="analyzeBtn" disabled style="background:linear-gradient(135deg,#ed8936,#dd6b20);"> Analisis dengan AI</button>
+    <div id="highlightsList" style="margin-top:15px;"></div>
+    <button class="btn btn-primary" id="clipHighlightBtn" style="display:none;">✂️ Clip Highlight Terpilih</button>
+  </div>
+
+  <button class="btn btn-download" id="downloadBtn"> Download Hasil</button>
+  <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="status" id="status"></div>
+</div>
+
+<script type="module">
+import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+let ffmpeg = null;
+let ffmpegLoaded = false;
+let selectedFile = null;
+let outputBlob = null;
+let outputExt = 'mp4';
+let highlights = [];
+let selectedHighlight = null;
+
+const $ = id => document.getElementById(id);
+
+async function initFFmpeg() {
+  if (ffmpegLoaded) return;
+  ffmpeg = new FFmpeg();
+  ffmpeg.on('progress', ({ progress }) => {
+    if (progress >= 0 && progress <= 1) {
+      $('progressBar').style.display = 'block';
+      $('progressFill').style.width = (progress * 100).toFixed(1) + '%';
+    }
+  });
+  setStatus('📥 Memuat FFmpeg (pertama kali ~15 detik)...', 'info');
+  const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+  });
+  ffmpegLoaded = true;
+  setStatus('✅ FFmpeg siap!', 'success');
+}
+
+window.switchTab = function(tab, e) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  e.target.classList.add('active');
+  $('tab-' + tab).classList.add('active');
+};
+
+$('fileInput').addEventListener('change', (e) => {
+  selectedFile = e.target.files[0];
+  if (selectedFile) {
+    const sizeMB = (selectedFile.size / 1024 / 1024).toFixed(2);
+    $('fileInfo').textContent = `✅ ${selectedFile.name} (${sizeMB} MB)`;
+    $('fileInfo').style.color = '#38a169';
+    $('clipBtn').disabled = false;
+    $('analyzeBtn').disabled = false;
+    $('downloadBtn').style.display = 'none';
+    outputBlob = null;
+    highlights = [];
+    $('highlightsList').innerHTML = '';
+    $('clipHighlightBtn').style.display = 'none';
+    const ext = selectedFile.name.split('.').pop().toLowerCase();
+    outputExt = ['mp3','wav','m4a','aac','ogg','flac'].includes(ext) ? 'mp3' : 'mp4';
+    setStatus('✅ File siap! Klik tombol untuk mulai.', 'success');
+  } else {
+    $('fileInfo').textContent = 'Belum ada file dipilih';
+    $('fileInfo').style.color = '#718096';
+    $('clipBtn').disabled = true;
+    $('analyzeBtn').disabled = true;
+  }
+});
+
+function setStatus(msg, type='info') {
+  $('status').className = 'status ' + type;
+  $('status').innerHTML = msg;
+}
+
+$('clipBtn').addEventListener('click', async () => {
+  if (!selectedFile) { alert('⚠️ Pilih file terlebih dahulu!'); return; }
+  const start = parseFloat($('startTime').value);
+  const end = parseFloat($('endTime').value);
+  if (isNaN(start) || isNaN(end) || start < 0 || end <= start) {
+    alert('❌ Waktu tidak valid!'); return;
+  }
+  await processClip(start, end - start);
+});
+
+$('analyzeBtn').addEventListener('click', async () => {
+  if (!selectedFile) { alert('⚠️ Pilih file terlebih dahulu!'); return; }
+  $('analyzeBtn').disabled = true;
+  $('analyzeBtn').innerHTML = '<span class="loader"></span>Menganalisis...';
+  setStatus('⏳ Memuat FFmpeg...', 'info');
+  $('progressBar').style.display = 'block';
+  $('progressFill').style.width = '5%';
+  highlights = [];
+  $('highlightsList').innerHTML = '';
+  $('clipHighlightBtn').style.display = 'none';
+  
+  try {
+    await initFFmpeg();
+    setStatus('📥 Membaca file...', 'info');
+    $('progressFill').style.width = '15%';
+    const inputName = 'input.' + selectedFile.name.split('.').pop();
+    await ffmpeg.writeFile(inputName, await fetchFile(selectedFile));
+    setStatus('🎵 Extract audio...', 'info');
+    $('progressFill').style.width = '30%';
+    await ffmpeg.exec(['-i', inputName, '-vn', '-acodec', 'pcm_s16le', '-ar', '8000', '-ac', '1', '-y', 'audio.wav']);
+    const wavData = await ffmpeg.readFile('audio.wav');
+    const audioData = parseWav(wavData.buffer);
+    setStatus(' Menganalisis audio...', 'info');
+    $('progressFill').style.width = '60%';
+    const mode = $('detectMode').value;
+    const numHL = parseInt($('numHighlights').value);
+    const clipDur = parseFloat($('clipDuration').value);
+    highlights = detectHighlights(audioData, mode, numHL, clipDur);
+    await ffmpeg.deleteFile(inputName);
+    await ffmpeg.deleteFile('audio.wav');
+    $('progressFill').style.width = '100%';
+    renderHighlights();
+    if (highlights.length > 0) {
+      setStatus(`✅ Ditemukan ${highlights.length} highlight!`, 'success');
+      $('clipHighlightBtn').style.display = 'block';
+    } else {
+      setStatus('⚠️ Tidak ada highlight terdeteksi.', 'error');
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus('❌ Error: ' + err.message, 'error');
+    alert('❌ Gagal: ' + err.message);
+  } finally {
+    $('analyzeBtn').disabled = false;
+    $('analyzeBtn').innerHTML = ' Analisis dengan AI';
+    setTimeout(() => { $('progressBar').style.display = 'none'; }, 1500);
+  }
+});
+
+function detectHighlights(audioData, mode, numHL, clipDur) {
+  const { samples, sampleRate, duration } = audioData;
+  const windowSize = Math.floor(sampleRate * 0.5);
+  const energies = [];
+  for (let i = 0; i < samples.length; i += windowSize) {
+    let sum = 0;
+    const end = Math.min(i + windowSize, samples.length);
+    for (let j = i; j < end; j++) sum += samples[j] * samples[j];
+    energies.push({ time: i / sampleRate, energy: Math.sqrt(sum / (end - i)) });
+  }
+  const maxE = Math.max(...energies.map(e => e.energy));
+  energies.forEach(e => e.normalized = e.energy / maxE);
+  const candidates = energies.filter(e => e.normalized >= 0.5).sort((a, b) => b.normalized - a.normalized);
+  const results = [];
+  const minGap = clipDur * 0.7;
+  for (const cand of candidates) {
+    if (results.length >= numHL) break;
+    const start = Math.max(0, cand.time - clipDur * 0.2);
+    const end = Math.min(duration, start + clipDur);
+    const overlaps = results.some(r => Math.abs(r.start - start) < minGap);
+    if (!overlaps) results.push({ start, end, score: cand.normalized, label: 'Audio Keras' });
+  }
+  results.sort((a, b) => a.start - b.start);
+  return results;
+}
+
+function renderHighlights() {
+  $('highlightsList').innerHTML = '';
+  highlights.forEach((hl, idx) => {
+    const item = document.createElement('div');
+    item.className = 'highlight-item';
+    item.innerHTML = `
+      <div style="font-weight:700; color:#2d3748; font-size:14px;">#${idx + 1} • ${formatTime(hl.start)} - ${formatTime(hl.end)}</div>
+      <div style="font-size:11px; color:#718096; margin-top:3px;">Skor: ${(hl.score * 100).toFixed(0)}%</div>
+    `;
+    item.onclick = () => {
+      document.querySelectorAll('.highlight-item').forEach(i => i.classList.remove('selected'));
+      item.classList.add('selected');
+      selectedHighlight = hl;
+      $('startTime').value = hl.start.toFixed(1);
+      $('endTime').value = hl.end.toFixed(1);
+      setStatus(`✅ Highlight #${idx + 1} terpilih!`, 'success');
+    };
+    $('highlightsList').appendChild(item);
+  });
+}
+
+function formatTime(s) {
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+function parseWav(buffer) {
+  const numSamples = (buffer.byteLength - 44) / 2;
+  const samples = new Int16Array(buffer.slice(44));
+  return { samples, sampleRate: 8000, duration: numSamples / 8000 };
+}
+
+$('clipHighlightBtn').addEventListener('click', async () => {
+  if (!selectedHighlight) { alert('⚠️ Pilih highlight terlebih dahulu!'); return; }
+  await processClip(selectedHighlight.start, selectedHighlight.end - selectedHighlight.start);
+});
+
+async function processClip(start, duration) {
+  $('clipBtn').disabled = true;
+  $('clipBtn').innerHTML = '<span class="loader"></span>Memproses...';
+  $('analyzeBtn').disabled = true;
+  $('clipHighlightBtn').disabled = true;
+  $('downloadBtn').style.display = 'none';
+  setStatus('⏳ Memuat FFmpeg...', 'info');
+  $('progressBar').style.display = 'block';
+  $('progressFill').style.width = '5%';
+  
+  try {
+    await initFFmpeg();
+    setStatus('📥 Membaca file...', 'info');
+    $('progressFill').style.width = '20%';
+    const inputName = 'input.' + selectedFile.name.split('.').pop();
+    const outputName = 'output.' + outputExt;
+    await ffmpeg.writeFile(inputName, await fetchFile(selectedFile));
+    setStatus('✂️ Memotong media...', 'info');
+    $('progressFill').style.width = '40%';
+    await ffmpeg.exec(['-i', inputName, '-ss', start.toString(), '-t', duration.toString(), '-c', 'copy', outputName]);
+    setStatus('💾 Menyiapkan file...', 'info');
+    $('progressFill').style.width = '90%';
+    const data = await ffmpeg.readFile(outputName);
+    const mime = outputExt === 'mp3' ? 'audio/mpeg' : 'video/mp4';
+    outputBlob = new Blob([data.buffer], { type: mime });
+    await ffmpeg.deleteFile(inputName);
+    await ffmpeg.deleteFile(outputName);
+    $('progressFill').style.width = '100%';
+    setStatus('✅ Berhasil! File siap diunduh.', 'success');
+    $('downloadBtn').style.display = 'block';
+  } catch (err) {
+    console.error(err);
+    setStatus('❌ Gagal: ' + err.message, 'error');
+    alert('❌ Gagal: ' + err.message);
+  } finally {
+    $('clipBtn').disabled = false;
+    $('clipBtn').innerHTML = '✂️ Mulai Memotong';
+    $('analyzeBtn').disabled = false;
+    $('clipHighlightBtn').disabled = false;
+    setTimeout(() => { $('progressBar').style.display = 'none'; }, 1500);
+  }
+}
+
+$('downloadBtn').addEventListener('click', () => {
+  if (!outputBlob) { alert('⚠️ Tidak ada file untuk diunduh!'); return; }
+  const url = URL.createObjectURL(outputBlob);
+  const a = document.createElement('a');
+  const baseName = selectedFile.name.replace(/\.[^/.]+$/, '');
+  const suffix = selectedHighlight ? `_highlight_${formatTime(selectedHighlight.start).replace(':', '-')}` : '_clipped';
+  a.href = url;
+  a.download = `${baseName}${suffix}.${outputExt}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setStatus('✅ File berhasil diunduh!', 'success');
+});
+</script>
+</body>
+</html>
